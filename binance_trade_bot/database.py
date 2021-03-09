@@ -19,7 +19,7 @@ class Database:
     def __init__(self, logger: Logger, config: Config, uri="sqlite:///data/crypto_trading.db"):
         self.logger = logger
         self.config = config
-        self.engine = create_engine(uri)
+        self.engine = create_engine(uri, connect_args={"check_same_thread": False})
         self.SessionMaker = sessionmaker(bind=self.engine)
         self.socketio_client = Client()
 
@@ -128,6 +128,32 @@ class Database:
             sh = ScoutHistory(pair, target_ratio, current_coin_price, other_coin_price)
             session.add(sh)
             self.send_update(sh)
+
+    def log_scout_stack(self, *args):
+        session: Session
+        with self.db_session() as session:
+            merged_shs = []
+            sh_stack = args[0]
+            for sh_temp in sh_stack:
+                pair = session.merge(sh_temp.pair)
+                sh = ScoutHistory(pair, sh_temp.target_ratio, sh_temp.current_coin_price, sh_temp.other_coin_price)
+                merged_shs.append(sh)
+                session.add(sh)
+
+            self.send_bulk_update(merged_shs)
+
+    def send_bulk_update(self, models):
+        if not self.socketio_connect():
+            return
+
+        bulk_data = []
+        for model in models:
+            bulk_data.append(model.info())
+
+        self.socketio_client.emit('bulk_save_objects', {
+            "table": models[0]._tablename__,
+            "data": bulk_data
+        }, namespace="/backend")
 
     def prune_scout_history(self):
         time_diff = datetime.now() - timedelta(hours=self.config.SCOUT_HISTORY_PRUNE_TIME)
