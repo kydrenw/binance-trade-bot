@@ -34,7 +34,7 @@ def main():
     schedule.every(1).hours.do(db.prune_value_history).tag("pruning value history")
 
     if config.HEARTBEAT_DURATION > 0:
-        schedule.every(config.HEARTBEAT_DURATION).minutes.do(trader.heartbeat_message).tag("heartbeat")
+        schedule.every(config.HEARTBEAT_DURATION).minutes.do(manager.heartbeat_message).tag("heartbeat")
 
     while True:
         schedule.run_pending()
