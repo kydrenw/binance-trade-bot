@@ -26,7 +26,16 @@ class AutoTrader:
         '''
         Jump from the source coin to the destination coin through bridge coin
         '''
-        if self.manager.sell_alt(pair.from_coin, self.config.BRIDGE, all_tickers) is None:
+        info = self.BinanceClient.get_account()
+        balances = filter(lambda coin: coin["asset"] == pair.from_coin, info[u'balances'])
+        balance = list(balances)[0]
+
+        can_sell = False
+
+        if balance and float(balance['free']) > 0.01:
+            can_sell = True
+
+        if can_sell and self.manager.sell_alt(pair.from_coin, self.config.BRIDGE, all_tickers) is None:
             self.logger.info("Couldn't sell, going back to scouting mode...")
             return None
         # This isn't pretty, but at the moment we don't have implemented logic to escape from a bridge coin... This'll do for now
