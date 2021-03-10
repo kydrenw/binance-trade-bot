@@ -68,6 +68,9 @@ class BinanceAPIManager:
         while True:
             try:
                 order_status = self.BinanceClient.get_order(symbol=origin_symbol + target_symbol, orderId=order_id)
+                # TODO
+                # if order_status == 'NEW' && timeout: check if having other ratio available, then cancel order, make new order
+                # if order_status == 'PARTIAL_FILLED', check if having other ratio available, then cancel order, sell current filled, make new order
                 break
             except BinanceAPIException as e:
                 self.logger.info(e)
@@ -81,7 +84,20 @@ class BinanceAPIManager:
         while order_status[u'status'] != 'FILLED':
             try:
                 order_status = self.BinanceClient.get_order(symbol=origin_symbol + target_symbol, orderId=order_id)
-                self.heartbeat_message()
+                if order_status[u'status'] == 'NEW':
+                    minutes = (time.time() - order_status[u'time'] / 1000 ) / 60
+                    timeout = 0
+                    if order_status[u'side'] == 'SELL':
+                        timeout = self.config.SELL_TIMEOUT
+
+                    # if order_status[u'side'] == 'BUY':
+                    #     timeout = self.config.BUY_TIMEOUT
+
+                    if timeout && minutes > timeout:
+                        cancel_order = None
+                        while cancel_order is None:
+                                cancel_order = self.BinanceClient.cancel_order(symbol=origin_symbol + target_symbol, orderId=order_id)
+                        return None
 
             except BinanceAPIException as e:
                 self.logger.info(e)
@@ -118,6 +134,8 @@ class BinanceAPIManager:
 
         # Try to buy until successful
         order = None
+        # TODO:
+        # check latest market price to see if the market price < from_coin_price, then set from_coin_price = market price
         while order is None:
             try:
                 order = self.BinanceClient.order_limit_buy(
@@ -181,6 +199,9 @@ class BinanceAPIManager:
         self.logger.info("Waiting for Binance")
 
         stat = self.wait_for_order(origin_symbol, target_symbol, order[u'orderId'])
+
+        if stat is None:
+            return None
 
         new_balance = self.get_currency_balance(origin_symbol)
         while new_balance >= origin_balance:

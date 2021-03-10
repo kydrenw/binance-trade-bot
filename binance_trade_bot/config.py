@@ -21,6 +21,8 @@ class Config:
             "tld": "com",
             "heartbeat_duration": "0",
             "heartbeat_message": "",
+            "sell_timeout": "0",
+            "buy_timeout": "0"
         }
 
         if not os.path.exists(CFG_FL_NAME):
@@ -90,3 +92,7 @@ class Config:
         self.CURRENT_COIN_SYMBOL = os.environ.get("CURRENT_COIN_SYMBOL") or config.get(
             USER_CFG_SECTION, "current_coin"
         )
+
+        self.SELL_TIMEOUT = os.environ.get("SELL_TIMEOUT") or config.get(USER_CFG_SECTION, "sell_timeout")
+
+        self.BUY_TIMEOUT = os.environ.get("BUY_TIMEOUT") or config.get(USER_CFG_SECTION, "buy_timeout")

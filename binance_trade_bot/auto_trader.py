@@ -1,5 +1,6 @@
 import random
 import threading
+import time
 from datetime import datetime
 from typing import Dict, List
 
@@ -15,6 +16,7 @@ from .utils import get_market_ticker_price_from_list
 
 class AutoTrader:
     def __init__(self, binance_manager: BinanceAPIManager, database: Database, logger: Logger, config: Config):
+        self.BinanceClient = binance_manager.BinanceClient
         self.manager = binance_manager
         self.db = database
         self.logger = logger
