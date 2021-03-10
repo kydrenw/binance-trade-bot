@@ -36,6 +36,8 @@ class AutoTrader:
             self.logger.info(balance)
             if balance and float(balance['free']) > 0.01:
                 can_sell = True
+            else:
+                self.logger.info("Skipping sell")
 
         if can_sell and self.manager.sell_alt(pair.from_coin, self.config.BRIDGE, all_tickers) is None:
             self.logger.info("Couldn't sell, going back to scouting mode...")
@@ -166,8 +168,8 @@ class AutoTrader:
         # if we have any viable options, pick the one with the biggest ratio
         if ratio_dict:
             best_pair = max(ratio_dict, key=ratio_dict.get)
-            self.logger.info('Will be jumping from {0} to {1}'.format(
-                current_coin, best_pair.to_coin_id))
+            self.logger.info('Will be jumping from {0} to {1}'.format(current_coin, best_pair.to_coin_id))
+            self.logger.info(best_pair)
             self.transaction_through_bridge(best_pair, all_tickers)
 
     def update_values(self):

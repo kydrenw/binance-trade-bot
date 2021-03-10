@@ -96,6 +96,7 @@ class BinanceAPIManager:
                         cancel_order = None
                         while cancel_order is None:
                             cancel_order = self.BinanceClient.cancel_order(symbol=origin_symbol + target_symbol, orderId=order_id)
+                        self.logger.info("Order timeout. Going back to scouting mode...")
                         return None
 
             except BinanceAPIException as e:
