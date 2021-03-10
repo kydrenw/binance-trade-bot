@@ -87,10 +87,10 @@ class BinanceAPIManager:
                     minutes = (time.time() - order_status[u'time'] / 1000 ) / 60
                     timeout = 0
                     if order_status[u'side'] == 'SELL':
-                        timeout = self.config.SELL_TIMEOUT
+                        timeout = float(self.config.SELL_TIMEOUT)
 
                     if order_status[u'side'] == 'BUY':
-                        timeout = self.config.BUY_TIMEOUT
+                        timeout = float(self.config.BUY_TIMEOUT)
 
                     if timeout and minutes > timeout:
                         cancel_order = None
