@@ -93,10 +93,10 @@ class BinanceAPIManager:
                     # if order_status[u'side'] == 'BUY':
                     #     timeout = self.config.BUY_TIMEOUT
 
-                    if timeout && minutes > timeout:
+                    if timeout and minutes > timeout:
                         cancel_order = None
                         while cancel_order is None:
-                                cancel_order = self.BinanceClient.cancel_order(symbol=origin_symbol + target_symbol, orderId=order_id)
+                            cancel_order = self.BinanceClient.cancel_order(symbol=origin_symbol + target_symbol, orderId=order_id)
                         return None
 
             except BinanceAPIException as e:
