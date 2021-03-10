@@ -69,7 +69,6 @@ class BinanceAPIManager:
             try:
                 order_status = self.BinanceClient.get_order(symbol=origin_symbol + target_symbol, orderId=order_id)
                 # TODO
-                # if order_status == 'NEW' && timeout: check if having other ratio available, then cancel order, make new order
                 # if order_status == 'PARTIAL_FILLED', check if having other ratio available, then cancel order, sell current filled, make new order
                 break
             except BinanceAPIException as e:
@@ -90,8 +89,8 @@ class BinanceAPIManager:
                     if order_status[u'side'] == 'SELL':
                         timeout = self.config.SELL_TIMEOUT
 
-                    # if order_status[u'side'] == 'BUY':
-                    #     timeout = self.config.BUY_TIMEOUT
+                    if order_status[u'side'] == 'BUY':
+                        timeout = self.config.BUY_TIMEOUT
 
                     if timeout and minutes > timeout:
                         cancel_order = None
@@ -154,8 +153,10 @@ class BinanceAPIManager:
 
         stat = self.wait_for_order(origin_symbol, target_symbol, order[u'orderId'])
 
-        self.logger.info("Bought {0}".format(origin_symbol))
+        if stat is None:
+            return
 
+        self.logger.info("Bought {0}".format(origin_symbol))
         trade_log.set_complete(stat["cummulativeQuoteQty"])
 
         return order
