@@ -16,6 +16,7 @@ class BinanceAPIManager:
         self.BinanceClient = Client(config.BINANCE_API_KEY, config.BINANCE_API_SECRET_KEY, tld=config.BINANCE_TLD)
         self.db = db
         self.logger = logger
+        self.config = config
 
     def get_all_market_tickers(self):
         """
@@ -79,8 +80,31 @@ class BinanceAPIManager:
 
         while order_status[u'status'] != 'FILLED':
             try:
-                order_status = self.BinanceClient.get_order(
-                    symbol=origin_symbol + target_symbol, orderId=order_id)
+                order_status = self.BinanceClient.get_order(symbol=origin_symbol + target_symbol, orderId=order_id)
+                if order_status[u'status'] == 'NEW':
+                    minutes = (time.time() - order_status[u'time'] / 1000 ) / 60
+                    timeout = 0
+                    if order_status[u'side'] == 'SELL':
+                        timeout = float(self.config.SELL_TIMEOUT)
+
+                    if order_status[u'side'] == 'BUY':
+                        timeout = float(self.config.BUY_TIMEOUT)
+
+                    if timeout and minutes > timeout:
+                        cancel_order = None
+                        while cancel_order is None:
+                            cancel_order = self.BinanceClient.cancel_order(symbol=origin_symbol + target_symbol, orderId=order_id)
+                        self.logger.info("Order timeout, going back to scouting mode...")
+                        return None
+
+                if order_status[u'status'] == 'PARTIALLY_FILLED':
+                    # TODO
+                    continue
+
+                if order_status[u'status'] == 'CANCELED':
+                    self.logger.info("Order is canceled, going back to scouting mode...")
+                    return None
+
             except BinanceAPIException as e:
                 self.logger.info(e)
                 time.sleep(1)
@@ -90,10 +114,10 @@ class BinanceAPIManager:
 
         return order_status
 
-    def buy_alt(self, origin_coin: Coin, target_coin: Coin, all_tickers):
-        return self.retry(self._buy_alt, origin_coin, target_coin, all_tickers)
+    def buy_alt(self, origin_coin: Coin, target_coin: Coin, coin_price):
+        return self.retry(self._buy_alt, origin_coin, target_coin, coin_price)
 
-    def _buy_alt(self, origin_coin: Coin, target_coin: Coin, all_tickers):
+    def _buy_alt(self, origin_coin: Coin, target_coin: Coin, coin_price):
         """
         Buy altcoin
         """
@@ -105,13 +129,8 @@ class BinanceAPIManager:
 
         origin_balance = self.get_currency_balance(origin_symbol)
         target_balance = self.get_currency_balance(target_symbol)
-        from_coin_price = get_market_ticker_price_from_list(all_tickers, origin_symbol + target_symbol)
 
-        order_quantity = math.floor(
-            target_balance
-            * 10 ** origin_tick
-            / from_coin_price
-        ) / float(10 ** origin_tick)
+        order_quantity = math.floor(target_balance * 10 ** origin_tick / coin_price) / float(10 ** origin_tick)
         self.logger.info("BUY QTY {0}".format(order_quantity))
 
         # Try to buy until successful
@@ -121,7 +140,7 @@ class BinanceAPIManager:
                 order = self.BinanceClient.order_limit_buy(
                     symbol=origin_symbol + target_symbol,
                     quantity=order_quantity,
-                    price=from_coin_price,
+                    price=coin_price,
                 )
                 self.logger.info(order)
             except BinanceAPIException as e:
@@ -134,16 +153,18 @@ class BinanceAPIManager:
 
         stat = self.wait_for_order(origin_symbol, target_symbol, order[u'orderId'])
 
-        self.logger.info("Bought {0}".format(origin_symbol))
+        if stat is None:
+            return None
 
+        self.logger.info("Bought {0}".format(origin_symbol))
         trade_log.set_complete(stat["cummulativeQuoteQty"])
 
         return order
 
-    def sell_alt(self, origin_coin: Coin, target_coin: Coin):
-        return self.retry(self._sell_alt, origin_coin, target_coin)
+    def sell_alt(self, origin_coin: Coin, target_coin: Coin, coin_price):
+        return self.retry(self._sell_alt, origin_coin, target_coin, coin_price)
 
-    def _sell_alt(self, origin_coin: Coin, target_coin: Coin):
+    def _sell_alt(self, origin_coin: Coin, target_coin: Coin, coin_price):
         """
         Sell altcoin
         """
@@ -163,8 +184,11 @@ class BinanceAPIManager:
         self.logger.info("Balance is {0}".format(origin_balance))
         order = None
         while order is None:
-            order = self.BinanceClient.order_market_sell(
-                symbol=origin_symbol + target_symbol, quantity=(order_quantity)
+            # Should sell at calculated price to avoid lost coin
+            order = self.BinanceClient.order_limit_sell(
+                symbol=origin_symbol + target_symbol,
+                quantity=(order_quantity),
+                price=coin_price
             )
 
         self.logger.info("order")
@@ -176,6 +200,9 @@ class BinanceAPIManager:
         self.logger.info("Waiting for Binance")
 
         stat = self.wait_for_order(origin_symbol, target_symbol, order[u'orderId'])
+
+        if stat is None:
+            return None
 
         new_balance = self.get_currency_balance(origin_symbol)
         while new_balance >= origin_balance:

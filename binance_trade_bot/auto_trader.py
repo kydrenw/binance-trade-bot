@@ -1,4 +1,6 @@
 import random
+import threading
+import time
 from datetime import datetime
 from typing import Dict, List
 
@@ -8,7 +10,7 @@ from .binance_api_manager import BinanceAPIManager
 from .config import Config
 from .database import Database
 from .logger import Logger
-from .models import Pair, Coin, CoinValue
+from .models import Pair, Coin, CoinValue, ScoutHistory
 from .utils import get_market_ticker_price_from_list
 
 
@@ -19,17 +21,27 @@ class AutoTrader:
         self.logger = logger
         self.config = config
 
-    def transaction_through_bridge(self, pair: Pair, all_tickers):
+    def transaction_through_bridge(self, pair: Pair, from_coin_price, to_coin_price):
         '''
         Jump from the source coin to the destination coin through bridge coin
         '''
-        if self.manager.sell_alt(pair.from_coin, self.config.BRIDGE) is None:
+        can_sell = False
+        balance = self.manager.get_currency_balance(pair.from_coin.symbol)
+
+        if balance and balance * from_coin_price > float(self.config.MIN_NOTIONAL):
+            can_sell = True
+        else:
+            self.logger.info("Skipping sell")
+
+        if can_sell and self.manager.sell_alt(pair.from_coin, self.config.BRIDGE, from_coin_price) is None:
             self.logger.info("Couldn't sell, going back to scouting mode...")
             return None
+
         # This isn't pretty, but at the moment we don't have implemented logic to escape from a bridge coin... This'll do for now
-        result = None
-        while result is None:
-            result = self.manager.buy_alt(pair.to_coin, self.config.BRIDGE, all_tickers)
+        result = self.manager.buy_alt(pair.to_coin, self.config.BRIDGE, to_coin_price)
+
+        if result is None:
+            return None
 
         self.db.set_current_coin(pair.to_coin)
         self.update_trade_threshold(float(result[u'price']), all_tickers)
@@ -100,7 +112,9 @@ class AutoTrader:
                 current_coin = self.db.get_current_coin()
                 self.logger.info("Purchasing {0} to begin trading".format(current_coin))
                 all_tickers = self.manager.get_all_market_tickers()
-                self.manager.buy_alt(current_coin, self.config.BRIDGE, all_tickers)
+                current_coin_price = get_market_ticker_price_from_list(all_tickers, current_coin + self.config.BRIDGE)
+
+                self.manager.buy_alt(current_coin, self.config.BRIDGE, current_coin_price)
                 self.logger.info("Ready to start trading")
 
     def scout(self):
@@ -122,6 +136,7 @@ class AutoTrader:
             return
 
         ratio_dict: Dict[Pair, float] = {}
+        scout_stack = []
 
         for pair in self.db.get_pairs_from(current_coin):
             if not pair.to_coin.enabled:
@@ -132,23 +147,36 @@ class AutoTrader:
                 self.logger.info("Skipping scouting... optional coin {0} not found".format(pair.to_coin + self.config.BRIDGE))
                 continue
 
-            self.db.log_scout(pair, pair.ratio, current_coin_price, optional_coin_price)
+            hitory = ScoutHistory(pair, pair.ratio, current_coin_price, optional_coin_price)
+            scout_stack.append(hitory)
 
             # Obtain (current coin)/(optional coin)
             coin_opt_coin_ratio = current_coin_price / optional_coin_price
 
             # save ratio so we can pick the best option, not necessarily the first
-            ratio_dict[pair] = (coin_opt_coin_ratio - self.config.SCOUT_TRANSACTION_FEE * self.config.SCOUT_MULTIPLIER * coin_opt_coin_ratio) - pair.ratio
+            diff = (coin_opt_coin_ratio - self.config.SCOUT_TRANSACTION_FEE * self.config.SCOUT_MULTIPLIER * coin_opt_coin_ratio) - pair.ratio
 
-        # keep only ratios bigger than zero
-        ratio_dict = {k: v for k, v in ratio_dict.items() if v > 0}
+            # keep only ratios bigger than min rate
+            if ((diff / pair.ratio) * 100) > float(self.config.MIN_SCOUT_RATE):
+                ratio_dict[pair] = diff
+
+        if scout_stack:
+            thread = threading.Thread(group=None, target=self.db.log_scout_stack, name=None, args=(scout_stack,))
+            thread.start()
+
+        self.logger.info(ratio_dict)
 
         # if we have any viable options, pick the one with the biggest ratio
         if ratio_dict:
             best_pair = max(ratio_dict, key=ratio_dict.get)
-            self.logger.info('Will be jumping from {0} to {1}'.format(
-                current_coin, best_pair.to_coin_id))
-            self.transaction_through_bridge(best_pair, all_tickers)
+            self.logger.info(best_pair)
+            self.logger.info('Will be jumping from {0} to {1}'.format(current_coin, best_pair.to_coin_id))
+
+            optional_coin_price = get_market_ticker_price_from_list(all_tickers, best_pair.to_coin + self.config.BRIDGE)
+            self.transaction_through_bridge(best_pair, current_coin_price, optional_coin_price)
+
+        # sleep to avoid reach API request limit
+        time.sleep(5)
 
     def update_values(self):
         '''

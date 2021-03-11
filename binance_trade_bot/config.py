@@ -19,6 +19,10 @@ class Config:
             "scout_sleep_time": "5",
             "hourToKeepScoutHistory": "1",
             "tld": "com",
+            "sell_timeout": "0",
+            "buy_timeout": "0",
+            "min_scout_rate": "0",
+            "min_notional": "10"
         }
 
         if not os.path.exists(CFG_FL_NAME):
@@ -77,3 +81,8 @@ class Config:
         self.CURRENT_COIN_SYMBOL = os.environ.get("CURRENT_COIN_SYMBOL") or config.get(
             USER_CFG_SECTION, "current_coin"
         )
+
+        self.SELL_TIMEOUT = os.environ.get("SELL_TIMEOUT") or config.get(USER_CFG_SECTION, "sell_timeout")
+        self.BUY_TIMEOUT = os.environ.get("BUY_TIMEOUT") or config.get(USER_CFG_SECTION, "buy_timeout")
+        self.MIN_SCOUT_RATE = os.environ.get("MIN_SCOUT_RATE") or config.get(USER_CFG_SECTION, "min_scout_rate")
+        self.MIN_NOTIONAL = os.environ.get("MIN_NOTIONAL") or config.get(USER_CFG_SECTION, "min_notional")
