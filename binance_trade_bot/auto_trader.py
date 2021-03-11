@@ -164,12 +164,9 @@ class AutoTrader:
             thread = threading.Thread(group=None, target=self.db.log_scout_stack, name=None, args=(scout_stack,))
             thread.start()
 
-        self.logger.info(ratio_dict)
-
         # if we have any viable options, pick the one with the biggest ratio
         if ratio_dict:
             best_pair = max(ratio_dict, key=ratio_dict.get)
-            self.logger.info(best_pair)
             self.logger.info('Will be jumping from {0} to {1}'.format(current_coin, best_pair.to_coin_id))
 
             optional_coin_price = get_market_ticker_price_from_list(all_tickers, best_pair.to_coin + self.config.BRIDGE)
