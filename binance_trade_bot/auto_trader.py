@@ -172,6 +172,8 @@ class AutoTrader:
             self.logger.info(best_pair)
             self.transaction_through_bridge(best_pair, all_tickers)
 
+        time.sleep(5)
+
     def update_values(self):
         '''
         Log current value state of all altcoin balances against BTC and USDT in DB.
