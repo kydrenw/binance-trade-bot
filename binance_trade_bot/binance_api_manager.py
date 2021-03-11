@@ -155,7 +155,7 @@ class BinanceAPIManager:
         stat = self.wait_for_order(origin_symbol, target_symbol, order[u'orderId'])
 
         if stat is None:
-            return
+            return None
 
         self.logger.info("Bought {0}".format(origin_symbol))
         trade_log.set_complete(stat["cummulativeQuoteQty"])

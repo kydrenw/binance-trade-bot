@@ -43,9 +43,9 @@ class AutoTrader:
             self.logger.info("Couldn't sell, going back to scouting mode...")
             return None
         # This isn't pretty, but at the moment we don't have implemented logic to escape from a bridge coin... This'll do for now
-        result = None
-        while result is None:
-            result = self.manager.buy_alt(pair.to_coin, self.config.BRIDGE, all_tickers)
+        result = self.manager.buy_alt(pair.to_coin, self.config.BRIDGE, all_tickers)
+        if result is None:
+            return None
 
         self.db.set_current_coin(pair.to_coin)
         self.update_trade_threshold(float(result[u'price']), all_tickers)
