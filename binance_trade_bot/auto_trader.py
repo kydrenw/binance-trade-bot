@@ -21,12 +21,13 @@ class AutoTrader:
         self.logger = logger
         self.config = config
 
-    def transaction_through_bridge(self, pair: Pair, from_coin_price, to_coin_price):
+    def transaction_through_bridge(self, pair: Pair, all_tickers):
         '''
         Jump from the source coin to the destination coin through bridge coin
         '''
         can_sell = False
         balance = self.manager.get_currency_balance(pair.from_coin.symbol)
+        from_coin_price = get_market_ticker_price_from_list(all_tickers, pair.from_coin + self.config.BRIDGE)
 
         if balance and balance * from_coin_price > float(self.config.MIN_NOTIONAL):
             can_sell = True
@@ -38,6 +39,7 @@ class AutoTrader:
             return None
 
         # This isn't pretty, but at the moment we don't have implemented logic to escape from a bridge coin... This'll do for now
+        to_coin_price = get_market_ticker_price_from_list(all_tickers, pair.to_coin + self.config.BRIDGE)
         result = self.manager.buy_alt(pair.to_coin, self.config.BRIDGE, to_coin_price)
 
         if result is None:
@@ -147,8 +149,8 @@ class AutoTrader:
                 self.logger.info("Skipping scouting... optional coin {0} not found".format(pair.to_coin + self.config.BRIDGE))
                 continue
 
-            hitory = ScoutHistory(pair, pair.ratio, current_coin_price, optional_coin_price)
-            scout_stack.append(hitory)
+            history = ScoutHistory(pair, pair.ratio, current_coin_price, optional_coin_price)
+            scout_stack.append(history)
 
             # Obtain (current coin)/(optional coin)
             coin_opt_coin_ratio = current_coin_price / optional_coin_price
@@ -170,7 +172,7 @@ class AutoTrader:
             self.logger.info('Will be jumping from {0} to {1}'.format(current_coin, best_pair.to_coin_id))
 
             optional_coin_price = get_market_ticker_price_from_list(all_tickers, best_pair.to_coin + self.config.BRIDGE)
-            self.transaction_through_bridge(best_pair, current_coin_price, optional_coin_price)
+            self.transaction_through_bridge(best_pair, all_tickers)
 
         # sleep to avoid reach API request limit
         time.sleep(5)
