@@ -150,7 +150,7 @@ class BinanceAPIManager:
                     quantity=order_quantity,
                     price=coin_price,
                 )
-                self.logger.info(order)
+                self.logger.info(str(order))
             except BinanceAPIException as e:
                 self.logger.info(e)
                 time.sleep(1)
@@ -200,7 +200,7 @@ class BinanceAPIManager:
             )
 
         self.logger.info("order")
-        self.logger.info(order)
+        self.logger.info(str(order))
 
         trade_log.set_ordered(origin_balance, target_balance, order_quantity)
 
