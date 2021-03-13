@@ -28,8 +28,10 @@ class AutoTrader:
         can_sell = False
         balance = self.manager.get_currency_balance(pair.from_coin.symbol)
         from_coin_price = get_market_ticker_price_from_list(all_tickers, pair.from_coin + self.config.BRIDGE)
+        min_notional = self.manager.get_min_notional(pair.from_coin, self.config.BRIDGE)
 
-        if balance and balance * from_coin_price > float(self.config.MIN_NOTIONAL):
+        self.logger.info("min_notional: {0}: ".format(min_notional))
+        if balance and balance * from_coin_price > min_notional:
             can_sell = True
         else:
             self.logger.info("Skipping sell")
@@ -170,7 +172,8 @@ class AutoTrader:
         if ratio_dict:
             best_pair = max(ratio_dict, key=ratio_dict.get)
             self.logger.info('Will be jumping from {0} to {1}'.format(current_coin, best_pair.to_coin_id))
-
+            self.logger.info(ratio_dict)
+            self.logger.info(best_pair)
             optional_coin_price = get_market_ticker_price_from_list(all_tickers, best_pair.to_coin + self.config.BRIDGE)
             self.transaction_through_bridge(best_pair, all_tickers)
 

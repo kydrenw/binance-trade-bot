@@ -55,6 +55,10 @@ class BinanceAPIManager:
                 attempts += 1
         return None
 
+    def get_symbol_filter(self, origin_symbol: str, target_symbol: str, filter_type: str):
+        return next(_filter for _filter in self.BinanceClient.get_symbol_info(origin_symbol + target_symbol)['filters']
+                    if _filter['filterType'] == filter_type)
+
     def get_alt_tick(self, origin_symbol: str, target_symbol: str):
         step_size = next(
             _filter['stepSize'] for _filter in self.BinanceClient.get_symbol_info(origin_symbol + target_symbol)['filters']
@@ -63,6 +67,9 @@ class BinanceAPIManager:
             return 1 - step_size.find('.')
         else:
             return step_size.find('1') - 1
+
+    def get_min_notional(self, origin_symbol: str, target_symbol: str):
+        return float(self.get_symbol_filter(origin_symbol, target_symbol, 'MIN_NOTIONAL')['minNotional'])
 
     def wait_for_order(self, origin_symbol, target_symbol, order_id):
         while True:
@@ -104,6 +111,7 @@ class BinanceAPIManager:
                 if order_status[u'status'] == 'CANCELED':
                     self.logger.info("Order is canceled, going back to scouting mode...")
                     return None
+                time.sleep(1)
 
             except BinanceAPIException as e:
                 self.logger.info(e)

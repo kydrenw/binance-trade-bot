@@ -23,8 +23,7 @@ class Config:
             "heartbeat_message": "0",
             "sell_timeout": "0",
             "buy_timeout": "0",
-            "min_scout_rate": "0",
-            "min_notional": "10"
+            "min_scout_rate": "0"
         }
 
         if not os.path.exists(CFG_FL_NAME):
@@ -98,4 +97,3 @@ class Config:
         self.SELL_TIMEOUT = os.environ.get("SELL_TIMEOUT") or config.get(USER_CFG_SECTION, "sell_timeout")
         self.BUY_TIMEOUT = os.environ.get("BUY_TIMEOUT") or config.get(USER_CFG_SECTION, "buy_timeout")
         self.MIN_SCOUT_RATE = os.environ.get("MIN_SCOUT_RATE") or config.get(USER_CFG_SECTION, "min_scout_rate")
-        self.MIN_NOTIONAL = os.environ.get("MIN_NOTIONAL") or config.get(USER_CFG_SECTION, "min_notional")
