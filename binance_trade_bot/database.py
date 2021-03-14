@@ -149,7 +149,7 @@ class Database:
         bulk_data = list(model.info() for model in models)
 
         self.socketio_client.emit('update_bulk', {
-            "table": models[0]._tablename__,
+            "table": models[0].__tablename__,
             "data": bulk_data
         }, namespace="/backend")
 
